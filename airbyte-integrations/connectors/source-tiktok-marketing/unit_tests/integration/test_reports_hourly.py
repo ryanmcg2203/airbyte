@@ -1,6 +1,7 @@
 # Copyright (c) 2024 Airbyte, Inc., all rights reserved.
 
 import json
+import time
 from unittest import TestCase
 
 from advetiser_slices import mock_advertisers_slices
@@ -402,6 +403,9 @@ class TestAdvertisersReportsHourly(TestCase):
     stream_name = "advertisers_reports_hourly"
     advertiser_id = "872746382648"
     cursor = "2024-01-01 10:00:00"
+    cursor_as_iso8601 = "2024-01-01T10:00:00+00:00"
+    # cursor = "2023-12-30 10:00:00"
+    # cursor_as_iso8601 = "2024-01-01T10:00:00+00:00"
     cursor_field = "stat_time_hour"
     metrics = [
         "spend",
@@ -437,7 +441,8 @@ class TestAdvertisersReportsHourly(TestCase):
         return CatalogBuilder().with_stream(name=self.stream_name, sync_mode=sync_mode).build()
 
     def config(self):
-        return ConfigBuilder().with_end_date("2024-01-02").build()
+        # blai: I bumped this one day later to simulate syncs running across multiple day partitions which simulates the mock server bug
+        return ConfigBuilder().with_end_date("2024-01-03").build()
 
     def state(self):
         return (
@@ -454,6 +459,46 @@ class TestAdvertisersReportsHourly(TestCase):
         )
 
     def mock_response(self, http_mocker: HttpMocker):
+        print("I'm mocking")
+
+        # Mocks to test for if we move the start date back to 2023-12-30 instead of 2024-01-01 which was the original test
+        # http_mocker.get(
+        #     HttpRequest(
+        #         url=f"https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
+        #         query_params={
+        #             "service_type": "AUCTION",
+        #             "report_type": "BASIC",
+        #             "data_level": "AUCTION_ADVERTISER",
+        #             "dimensions": '["advertiser_id", "stat_time_hour"]',
+        #             "metrics": str(self.metrics).replace("'", '"'),
+        #             "start_date": "2023-12-30",
+        #             "end_date": "2023-12-30",
+        #             "page_size": 1000,
+        #             "advertiser_id": self.advertiser_id,
+        #         },
+        #     ),
+        #     HttpResponse(body=json.dumps(find_template(self.stream_name, __file__)), status_code=200),
+        # )
+        #
+        # http_mocker.get(
+        #     HttpRequest(
+        #         url=f"https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
+        #         query_params={
+        #             "service_type": "AUCTION",
+        #             "report_type": "BASIC",
+        #             "data_level": "AUCTION_ADVERTISER",
+        #             "dimensions": '["advertiser_id", "stat_time_hour"]',
+        #             "metrics": str(self.metrics).replace("'", '"'),
+        #             "start_date": "2023-12-31",
+        #             "end_date": "2023-12-31",
+        #             "page_size": 1000,
+        #             "advertiser_id": self.advertiser_id,
+        #         },
+        #     ),
+        #     HttpResponse(body=json.dumps(find_template(self.stream_name, __file__)), status_code=200),
+        # )
+
+        # Onlye one of these two mocks are hit when I run this normally, but
         http_mocker.get(
             HttpRequest(
                 url=f"https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
@@ -463,8 +508,8 @@ class TestAdvertisersReportsHourly(TestCase):
                     "data_level": "AUCTION_ADVERTISER",
                     "dimensions": '["advertiser_id", "stat_time_hour"]',
                     "metrics": str(self.metrics).replace("'", '"'),
-                    "start_date": self.config()["start_date"],
-                    "end_date": self.config()["start_date"],
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-01-01",
                     "page_size": 1000,
                     "advertiser_id": self.advertiser_id,
                 },
@@ -481,14 +526,32 @@ class TestAdvertisersReportsHourly(TestCase):
                     "data_level": "AUCTION_ADVERTISER",
                     "dimensions": '["advertiser_id", "stat_time_hour"]',
                     "metrics": str(self.metrics).replace("'", '"'),
-                    "start_date": self.config()["end_date"],
-                    "end_date": self.config()["end_date"],
+                    "start_date": "2024-01-02",
+                    "end_date": "2024-01-02",
                     "page_size": 1000,
                     "advertiser_id": self.advertiser_id,
                 },
             ),
-            HttpResponse(body=json.dumps(EMPTY_LIST_RESPONSE), status_code=200),
+            HttpResponse(body=json.dumps(find_template(self.stream_name, __file__)), status_code=200),
         )
+
+        # http_mocker.get(
+        #     HttpRequest(
+        #         url=f"https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/",
+        #         query_params={
+        #             "service_type": "AUCTION",
+        #             "report_type": "BASIC",
+        #             "data_level": "AUCTION_ADVERTISER",
+        #             "dimensions": '["advertiser_id", "stat_time_hour"]',
+        #             "metrics": str(self.metrics).replace("'", '"'),
+        #             "start_date": self.config()["end_date"],
+        #             "end_date": self.config()["end_date"],
+        #             "page_size": 1000,
+        #             "advertiser_id": self.advertiser_id,
+        #         },
+        #     ),
+        #     HttpResponse(body=json.dumps(EMPTY_LIST_RESPONSE), status_code=200),
+        # )
 
     @HttpMocker()
     def test_basic_read(self, http_mocker: HttpMocker):
@@ -505,8 +568,10 @@ class TestAdvertisersReportsHourly(TestCase):
         mock_advertisers_slices(http_mocker, self.config())
         self.mock_response(http_mocker)
 
+        time.sleep(5)
+
         output = read(
-            source=SourceTiktokMarketing(config=self.config(), catalog=None, state=None),
+            source=SourceTiktokMarketing(config=self.config(), catalog=None, state=self.state()),
             config=self.config(),
             catalog=self.catalog(sync_mode=SyncMode.incremental),
             state=self.state(),
@@ -514,7 +579,7 @@ class TestAdvertisersReportsHourly(TestCase):
 
         assert len(output.records) == 1
         assert output.state_messages[0].state.stream.stream_state.states == [
-            {"cursor": {"stat_time_hour": self.cursor}, "partition": {"advertiser_id": self.advertiser_id, "parent_slice": {}}}
+            {"cursor": {"stat_time_hour": self.cursor_as_iso8601}, "partition": {"advertiser_id": self.advertiser_id, "parent_slice": {}}}
         ]
 
 

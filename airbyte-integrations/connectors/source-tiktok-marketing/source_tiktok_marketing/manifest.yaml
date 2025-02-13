@@ -381,12 +381,15 @@ definitions:
 
   record_selector_for_hourly_reports_streams:
     $ref: "#/definitions/record_selector"
-    record_filter:
-      type: CustomRecordFilter
-      class_name: "source_tiktok_marketing.components.semi_incremental_record_filter.PerPartitionRecordFilter"
-      condition: "{{ record['dimensions']['stat_time_hour'] >= stream_state.get('stat_time_hour', config.get('start_date', '')) }}"
-      $parameters:
-        partition_field: advertiser_id
+  # Commenting this out to simplify showing that for some reason the mocker does not work when I run this regularly
+  # but when i run this in debug mode, i actually end up w/ 4 records so both mocks hit. When I run this regularly,
+  # I only get 2 records back implying that I only hit one of the mocks
+  #    record_filter:
+  #      type: CustomRecordFilter
+  #      class_name: "source_tiktok_marketing.components.semi_incremental_record_filter.PerPartitionRecordFilter"
+  #      condition: "{{ record['dimensions']['stat_time_hour'] >= stream_interval.get('start_time', config.get('start_date', '')) }}"
+  #      $parameters:
+  #        partition_field: advertiser_id
 
   base_report_retriever:
     type: SimpleRetriever
@@ -399,7 +402,9 @@ definitions:
         dimensions: '{{ parameters["dimensions"] | string }}'
         metrics: '{{ (parameters.get("report_metrics", []) + ["spend", "cpc", "cpm", "impressions", "clicks", "ctr", "reach", "cost_per_1000_reached", "frequency", "video_play_actions", "video_watched_2s", "video_watched_6s", "average_video_play", "average_video_play_per_user", "video_views_p25", "video_views_p50", "video_views_p75", "video_views_p100", "profile_visits", "likes", "comments", "shares", "follows", "clicks_on_music_disc", "real_time_app_install", "real_time_app_install_cost", "app_install"]) | string }}'
         start_date: "{{ stream_interval['start_time'] }}"
-        end_date: "{{ stream_interval['end_time'] }}"
+        end_date: "{{ stream_interval['start_time'] }}" # just using start time can keep us on the same date
+        #        start_date: "{{ format_datetime(stream_interval['start_time'], '%Y-%m-%d', '%Y-%m-%d %H:%M:%S') }}"
+        #        end_date: "{{ format_datetime(stream_interval['start_time'], '%Y-%m-%d', '%Y-%m-%d %H:%M:%S') }}"
         filtering: '{{ parameters["filtering"] | string if parameters.get("filtering") and config.get("include_deleted", False)}}'
       authenticator:
         $ref: "#/definitions/authenticator"
@@ -435,8 +440,9 @@ definitions:
       datetime_format: "%Y-%m-%d"
 
   report_hourly_incremental_sync:
-    type: CustomIncrementalSync
-    class_name: source_tiktok_marketing.components.hourly_datetime_based_cursor.HourlyDatetimeBasedCursor
+    #    type: CustomIncrementalSync
+    #    class_name: source_tiktok_marketing.components.hourly_datetime_based_cursor.HourlyDatetimeBasedCursor
+    type: DatetimeBasedCursor
     cursor_field: "stat_time_hour"
     lookback_window: "P{{ config.get('attribution_window', 0) }}D"
     cursor_granularity: "PT1H"
@@ -445,12 +451,19 @@ definitions:
       - "%Y-%m-%d %H:%M:%S"
       - "%Y-%m-%dT%H:%M:%SZ"
     datetime_format: "%Y-%m-%d"
+    #    datetime_format: "%Y-%m-%d %H:%M:%S"
     start_datetime:
       type: MinMaxDatetime
-      datetime: "{{ config.get('start_date', '2016-09-01') }}"
-      datetime_format: "%Y-%m-%d"
+      # datetime: "{{ config.get('start_date', '2016-09-01') }}"
+      datetime: "{{ str_to_datetime(config['start_date'], '%Y-%m-%d') if 'start_date' in config else '2016-09-01 00:00:00' }}"
+      datetime_format: "%Y-%m-%d %H:%M:%S"
     end_datetime:
       type: MinMaxDatetime
+      #      datetime: "{{ str_to_datetime(config['end_date'], '%Y-%m-%d') if 'end_date' in config else format_datetime(now_utc(), '%Y-%m-%d %H:%M:%S') }}"
+      #      datetime: "{{ str_to_datetime(config['end_date'], '%Y-%m-%d') + duration('P1D') }}"
+      #      datetime: "{{ config.get('end_date', today_utc()) }}"
+      #      datetime: "{{ str_to_datetime(config.get('end_date', today_utc()), '%Y-%m-%d') + duration('P1D') }}"
+      #      datetime_format: "%Y-%m-%d %H:%M:%S"
       datetime: "{{ config.get('end_date', today_utc()) }}"
       datetime_format: "%Y-%m-%d"
 
