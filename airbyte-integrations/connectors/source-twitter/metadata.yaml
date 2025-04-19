@@ -8,7 +8,7 @@ data:
   connectorSubtype: api
   connectorType: source
   definitionId: d7fd4f40-5e5a-4b8b-918f-a73077f8c131
-  dockerImageTag: 0.3.8
+  dockerImageTag: 0.3.9
   dockerRepository: airbyte/source-twitter
   documentationUrl: https://docs.airbyte.com/integrations/sources/twitter
   githubIssueLabel: source-twitter
@@ -42,5 +42,5 @@ data:
             type: GSM
             alias: airbyte-connector-testing-secret-store
   connectorBuildOptions:
-    baseImage: docker.io/airbyte/source-declarative-manifest:6.45.1@sha256:101da55e5201e9ce0ba5f3ebc7528e700f75a2a1d9afe76a34573d0311fe7a98
+    baseImage: docker.io/airbyte/source-declarative-manifest:6.45.7@sha256:dc01ec948ba69f93615cbe4f421bf99f4236107dea44feb6cb244f3d9dc09366
 metadataSpecVersion: "1.0"
