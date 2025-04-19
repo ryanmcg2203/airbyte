@@ -3,11 +3,11 @@ data:
     ql: 100
     sl: 100
   connectorBuildOptions:
-    baseImage: docker.io/airbyte/source-declarative-manifest:5.17.0@sha256:9c6bfd080a247b7781ce5b25687e7c44e29d31315d0bf656584b38810521bbaa
+    baseImage: docker.io/airbyte/source-declarative-manifest:6.45.7@sha256:dc01ec948ba69f93615cbe4f421bf99f4236107dea44feb6cb244f3d9dc09366
   connectorSubtype: api
   connectorType: source
   definitionId: 0fae6a9a-04eb-44d4-96e1-e02d3dbc1d83
-  dockerImageTag: 0.2.2
+  dockerImageTag: 0.2.3
   dockerRepository: airbyte/source-nytimes
   documentationUrl: https://docs.airbyte.com/integrations/sources/nytimes
   githubIssueLabel: source-nytimes
